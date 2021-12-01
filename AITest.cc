@@ -9,7 +9,6 @@
 
 struct PLAYER_NAME : public Player
 {
-
   /**
    * Factory: returns a new instance of this class.
    * Do not modify this function.
@@ -24,8 +23,32 @@ struct PLAYER_NAME : public Player
    */
   typedef vector<int> VI;
   typedef pair<VI, VI> PVI;
-
+  vector<pair<pair<int, int>, Pos>> StartingComp;
   //calculates the distance between 2 positions
+
+  //returns if the element i exists in the vector v
+  bool Exists(vector<int> v, int i)
+  {
+    return find(v.begin(), v.end(), i) != v.end();
+  }
+
+  //returns a pair, where the first element consists on a unit and the second one the closest ally unit to it
+  pair<int, int> findCouple(int id, vector<int> Units0)
+  {
+    int n = Units0.size();
+    Unit male = unit(id);
+    Unit female = unit(Units0[1]);
+    for(int i = 2; i < n; i++)
+    {
+      Unit candidate = unit(Units0[i]);
+      if(calculateDistance(male.pos, candidate.pos) < calculateDistance(male.pos, female.pos)) female = candidate;
+    }
+    pair<int, int> couple;
+    couple.first = id;
+    couple.second = female.id;
+    return couple;
+  }
+  //returns the distance between 2 positions
   double calculateDistance(Pos &x, Pos &y)
   {
     return abs(x.i-y.i) + abs(x.j-y.j);
@@ -71,12 +94,72 @@ struct PLAYER_NAME : public Player
     return false;
   }
 
+  VI setAttackers(VI Units, VI Explorers)
+  {
+    return Explorers;//OJO
+  }
+
+  Dir defenderBehaviour(int defenderId)
+  {
+//    defenders are the ones inside a city or path, they cannot leave their defended region
+//    they will move towards the closest enemy unit without leaving their defended region.
+//    if an enemy gets inside the defended region, they will try to kill em.
+
+    return TOP;//OJO
+  }
+
+  // defines the attackers behaviour
+  Dir attackerBehaviour(int attackerId)
+  {
+//  attackers will try to find and kill the nearest enemy. They will take into account where the other units are going to move to avoid collisions.
+//  collisions with walls and other non transversable cells will be avoided.
+
+  return BOTTOM;//OJO
+  }
+
+  // defines the explorers behaviour
+  Dir explorerBehaviour(int explorerId)
+  {
+//    explorers will try and move towards the closest city or bridge not owned by us. If they are inside a city or bridge
+//    and it does not become ours, it will try and kill the enemy units inside it.
+//    if there is nothing to explore, they will take the attackers role
+    return RIGHT;//OJO
+  }
+
+  vector<pair<int, Dir>> planStrategy(VI attackers, VI explorers, VI defenders) {
+//    explorers will allways have the right to choose first where to move.
+    vector<pair<int, Dir>> movements;
+    int a = attackers.size();
+    int e = explorers.size();
+    int d = defenders.size();
+    for(int i = 0; i < d; ++i)//defenders next movement
+    {
+      Dir direction = defenderBehaviour(defenders[i]);
+      movements.push_back(make_pair(defenders[i], direction));
+    }
+
+    for(int i = 0; i < e; ++i)//explorers next movement
+    {
+      Dir direction = explorerBehaviour(explorers[i]);
+      movements.push_back(make_pair(explorers[i], direction));
+    }
+
+    for(int i = 0; i < a; ++i)//attackers next movement
+    {
+      Dir direction = attackerBehaviour(attackers[i]);
+      movements.push_back(make_pair(attackers[i], direction));
+    }
+    return movements;
+  }
+
   void act()
   {
     VI Units = my_units(me());
     int n = Units.size();
     PVI EandD = getExplorersAndDefenders(Units);
-    for(int i = 0; i < n; i++)
+    VI attackers = setAttackers(Units, EandD.first);
+    vector<pair<int, Dir>> movements = planStrategy(attackers, EandD.first, EandD.second);
+    /*for(int i = 0; i < n; i++)
     {
       int id = Units[i];
       Unit u = unit(id);
@@ -125,6 +208,44 @@ struct PLAYER_NAME : public Player
       else if(u.pos.i > closerCity.i) move(id, TOP);
       else if(u.pos.j < closerCity.j) move(id, RIGHT);
       else if(u.pos.j > closerCity.j) move(id, LEFT);
+    }*/
+  }
+
+  //this function adds too StartingComp vector: a couple(2) of units wich are the closest ones to each other and their closest city
+  void start()
+  {
+    VI Units0 = my_units(me());
+    int n = Units0.size();
+    for(int i = 0; i < n; i++)
+    {
+      int id = Units0[i];
+      Unit u = unit(id);
+      if(u.damage != 0)
+      {
+        Units0.erase(Units0.begin() + i);
+        --i;
+      }
+    }
+    for(int i = 0; i < 6; i++)
+    {
+      int id = Units0[0];
+      Unit u = unit(id);
+      if(Exists(Units0, id))
+      {
+        pair<int, int> couple = findCouple(id, Units0);
+        Pos closerCity = closer_city(u.pos);
+        pair<pair<int, int>, Pos> newCouple;
+        newCouple.first = couple;
+        newCouple.second = closerCity;
+        StartingComp.push_back(newCouple);
+        Units0.erase(Units0.begin());
+        int x = Units0.size();
+        for(int j = 0; j < x; j++)
+          if(Units0[j] == couple.second)
+          {
+            Units0.erase(Units0.begin() + j);
+          }
+      }
     }
   }
   /**
@@ -132,7 +253,12 @@ struct PLAYER_NAME : public Player
    */
   virtual void play()
   {
-    act();
+    if(round() == 0)
+    {
+      cout<< "00000000";
+      start();
+    }
+    else act();
   }
 };
 
