@@ -23,7 +23,10 @@ struct PLAYER_NAME : public Player
    */
   typedef vector<int> VI;
   typedef pair<VI, VI> PVI;
-  vector<pair<pair<int, int>, Pos>> StartingComp;
+  vector<pair<pair<int, int>, pair<Pos, Pos>>> StartingComp;
+  vector<bool> finished = {0,0,0,0,0,0};
+  vector<int> infectedUnits;
+  int endRound0 = 6;
   //calculates the distance between 2 positions
 
   //returns if the element i exists in the vector v
@@ -126,6 +129,16 @@ struct PLAYER_NAME : public Player
     return RIGHT;//OJO
   }
 
+  void goTo(Pos& x, Unit& u)
+  {
+    if(u.pos.i < x.i && cell(u.pos + BOTTOM).type != WALL) move(u.id, BOTTOM);
+    else if(u.pos.i > x.i && cell(u.pos + TOP).type != WALL) move(u.id, TOP);
+    else if(u.pos.j < x.j && cell(u.pos + RIGHT).type != WALL) move(u.id, RIGHT);
+    else if(u.pos.j > x.j && cell(u.pos + LEFT).type != WALL) move(u.id, LEFT);
+    else move(u.id, BOTTOM);
+
+  }
+
   vector<pair<int, Dir>> planStrategy(VI attackers, VI explorers, VI defenders) {
 //    explorers will allways have the right to choose first where to move.
     vector<pair<int, Dir>> movements;
@@ -154,12 +167,7 @@ struct PLAYER_NAME : public Player
 
   void act()
   {
-    VI Units = my_units(me());
-    int n = Units.size();
-    PVI EandD = getExplorersAndDefenders(Units);
-    VI attackers = setAttackers(Units, EandD.first);
-    vector<pair<int, Dir>> movements = planStrategy(attackers, EandD.first, EandD.second);
-    /*for(int i = 0; i < n; i++)
+    for(int i = 0; i < n; i++)
     {
       int id = Units[i];
       Unit u = unit(id);
@@ -171,44 +179,90 @@ struct PLAYER_NAME : public Player
           {
             if(not u.immune) move(id, TOP);
             else if(cell(u.pos + LEFT).type != WALL) move(id, LEFT);
-            else move(id, RIGHT);
+            else if(cell(u.pos + RIGHT).type != WALL) move(id, RIGHT);
+            else if(cell(u.pos + BOTTOM).type != WALL) move(id, BOTTOM);
+            else move(id, TOP);
           }
         }
         else if(j == 1)
         {
           if(cell(u.pos + BOTTOM).unit_id != -1)
           {
-            if(not u.immune)move(id, BOTTOM);
+            if(not u.immune) move(id BOTTOM);
             else if(cell(u.pos + LEFT).type != WALL) move(id, LEFT);
-            else move(id, RIGHT);
-          }
+            else if(cell(u.pos + RIGHT).type != WALL) move(id, RIGHT);
+            else if(cell(u.pos + TOP).type != WALL) move(id, TOP);
+            else move(id, BOTTOM);
         }
         else if(j == 2)
         {
           if(cell(u.pos + LEFT).unit_id != -1)
           {
-            if(not u.immune) move(id, LEFT);
+            if(not u.immune) move(id LEFT);
+            else if(cell(u.pos + BOTTOM).type != WALL) move(id, BOTTOM);
+            else if(cell(u.pos + RIGHT).type != WALL) move(id, RIGHT);
             else if(cell(u.pos + TOP).type != WALL) move(id, TOP);
-            else move(id, BOTTOM);
+            else move(id, LEFT);
           }
         }
         else if(j == 3)
         {
           if(cell(u.pos + RIGHT).unit_id != -1)
           {
-            if(not u.immune) move(id, RIGHT);
+            if(not u.immune) move(id RIGHT);
+            else if(cell(u.pos + LEFT).type != WALL) move(id, LEFT);
+            else if(cell(u.pos + BOTTOM).type != WALL) move(id, BOTTOM);
             else if(cell(u.pos + TOP).type != WALL) move(id, TOP);
-            else move(id, BOTTOM);
+            else move(id, RIGHT);
           }
         }
-
       }
       Pos closerCity = closer_city(u.pos);
       if(u.pos.i < closerCity.i) move(id, BOTTOM);
       else if(u.pos.i > closerCity.i) move(id, TOP);
       else if(u.pos.j < closerCity.j) move(id, RIGHT);
       else if(u.pos.j > closerCity.j) move(id, LEFT);
-    }*/
+    }
+    if(endRound0 > 0)
+    {
+      for(int i = 0; i < 6; i++)
+      {
+        int id1 = StartingComp[i].first.first;
+        int id2 = StartingComp[i].first.second;
+        Unit u1 = unit(id1);
+        Unit u2 = unit(id2);
+        Pos city1 = StartingComp[i].second.first;
+        Pos city2 = StartingComp[i].second.second;
+        //goTo(u2.pos, u1);
+
+        if(u1.pos != city1) goTo(city1, u1);
+        if(u2.pos != city2) goTo(city2, u2);
+        else if(u1.pos == city1 && u2.pos == city2 && !finished[i])
+        {
+          finished[i] = true;
+          endRound0--;
+        }
+      }
+    }
+    else if(endRound0 == 10)
+    {
+      VI Units = my_units(me());
+      int n = Units.size();
+      PVI EandD = getExplorersAndDefenders(Units);
+      VI attackers = setAttackers(Units, EandD.first);
+      vector<pair<int, Dir>> movements = planStrategy(attackers, EandD.first, EandD.second);
+    }
+    int z = infectedUnits.size();
+    for(int i = 0; i < z; i++)
+    {
+      int id = infectedUnits[i];
+      Unit u = unit(id);
+      Pos center;
+      center.i = 35;
+      center.j = 35;
+      goTo(center, u);
+    }
+
   }
 
   //this function adds too StartingComp vector: a couple(2) of units wich are the closest ones to each other and their closest city
@@ -222,6 +276,7 @@ struct PLAYER_NAME : public Player
       Unit u = unit(id);
       if(u.damage != 0)
       {
+        infectedUnits.push_back(id);
         Units0.erase(Units0.begin() + i);
         --i;
       }
@@ -234,9 +289,17 @@ struct PLAYER_NAME : public Player
       {
         pair<int, int> couple = findCouple(id, Units0);
         Pos closerCity = closer_city(u.pos);
-        pair<pair<int, int>, Pos> newCouple;
+        Pos closerCity2;
+        if(cell(closerCity + TOP).type == CITY) closerCity2 = closerCity + TOP;
+        else if(cell(closerCity + BOTTOM).type == CITY) closerCity2 = closerCity + BOTTOM;
+        else if(cell(closerCity + LEFT).type == CITY) closerCity2 = closerCity + LEFT;
+        else if(cell(closerCity + RIGHT).type == CITY) closerCity2 = closerCity + RIGHT;
+        pair<Pos, Pos> cC;
+        cC.first = closerCity;
+        cC.second = closerCity2;
+        pair<pair<int, int>, pair<Pos, Pos>> newCouple;
         newCouple.first = couple;
-        newCouple.second = closerCity;
+        newCouple.second = cC;
         StartingComp.push_back(newCouple);
         Units0.erase(Units0.begin());
         int x = Units0.size();
@@ -247,6 +310,11 @@ struct PLAYER_NAME : public Player
           }
       }
     }
+    cout<< "-----------------------------------------";
+    for(int i = 0; i < 6; i++)
+    {
+      cout<< endl << StartingComp.size() << ' ' << StartingComp[i].first.first << ' ' << StartingComp[i].first.second << ' ' << StartingComp[i].second.first.i << '-' << StartingComp[i].second.first.j << ' ' << StartingComp[i].second.second.i << '-' << StartingComp[i].second.second.j << endl;
+    }
   }
   /**
    * Play method, invoked once per each round.
@@ -255,7 +323,6 @@ struct PLAYER_NAME : public Player
   {
     if(round() == 0)
     {
-      cout<< "00000000";
       start();
     }
     else act();
