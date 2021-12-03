@@ -27,7 +27,6 @@ struct PLAYER_NAME : public Player
   vector<bool> finished = {0,0,0,0,0,0};
   vector<int> infectedUnits;
   int endRound0 = 6;
-  //calculates the distance between 2 positions
 
   //returns if the element i exists in the vector v
   bool Exists(vector<int> v, int i)
@@ -38,37 +37,37 @@ struct PLAYER_NAME : public Player
   //returns a pair, where the first element consists on a unit and the second one the closest ally unit to it
   pair<int, int> findCouple(int id, vector<int> Units0)
   {
-    int n = Units0.size();
-    Unit male = unit(id);
-    Unit female = unit(Units0[1]);
-    for(int i = 2; i < n; i++)
-    {
-      Unit candidate = unit(Units0[i]);
-      if(calculateDistance(male.pos, candidate.pos) < calculateDistance(male.pos, female.pos)) female = candidate;
-    }
-    pair<int, int> couple;
-    couple.first = id;
-    couple.second = female.id;
-    return couple;
-  }
+   int n = Units0.size();
+   Unit male = unit(id);
+   Unit female = unit(Units0[1]);
+   for(int i = 2; i < n; i++)
+   {
+     Unit candidate = unit(Units0[i]);
+     if(calculateDistance(male.pos, candidate.pos) < calculateDistance(male.pos, female.pos)) female = candidate;
+   }
+   pair<int, int> couple;
+   couple.first = id;
+   couple.second = female.id;
+   return couple;
+ }
   //returns the distance between 2 positions
   double calculateDistance(Pos &x, Pos &y)
   {
     return abs(x.i-y.i) + abs(x.j-y.j);
   }
 
-//Calculates the closer city avaliable of a position(unit)
-  Pos closer_city(Pos &x)
+//Calculates the closest city avaliable of a position(unit)
+  Pos closest_city(Pos &x)
   {
-    Pos closer;
-    closer = city(0)[0];
+    Pos closest;
+    closest = city(0)[0];
     for(int i = 0; i < nb_cities(); i++)
       for(long unsigned int j = 0; j < city(i).size(); j++)
       {
         if(city_owner(i) != me())//OJO
-          if(calculateDistance(x, city(i)[j]) < calculateDistance(x, closer)) closer = city(i)[j];
+          if(calculateDistance(x, city(i)[j]) < calculateDistance(x, closest)) closest = city(i)[j];
       }
-    return closer;
+    return closest;
   }
 
   //returns a vector having the Explorers on the first part of it and the Defenders on the second one
@@ -129,14 +128,14 @@ struct PLAYER_NAME : public Player
     return RIGHT;//OJO
   }
 
-  void goTo(Pos& x, Unit& u)
+  //Moves the unit to the desired position
+  void goTo(Pos& x, Unit& u, bool b)
   {
-    if(u.pos.i < x.i && cell(u.pos + BOTTOM).type != WALL) move(u.id, BOTTOM);
-    else if(u.pos.i > x.i && cell(u.pos + TOP).type != WALL) move(u.id, TOP);
-    else if(u.pos.j < x.j && cell(u.pos + RIGHT).type != WALL) move(u.id, RIGHT);
-    else if(u.pos.j > x.j && cell(u.pos + LEFT).type != WALL) move(u.id, LEFT);
-    else move(u.id, BOTTOM);
-
+    if(u.pos.i < x.i && cell(u.pos + BOTTOM).type != WALL && cell(u.pos + BOTTOM).unit_id == -1) move(u.id, BOTTOM);
+    else if(u.pos.i > x.i && cell(u.pos + TOP).type != WALL && cell(u.pos + TOP).unit_id == -1) move(u.id, TOP);
+    else if(u.pos.j < x.j && cell(u.pos + RIGHT).type != WALL && cell(u.pos + RIGHT).unit_id == -1) move(u.id, RIGHT);
+    else if(u.pos.j > x.j && cell(u.pos + LEFT).type != WALL && cell(u.pos + LEFT).unit_id == -1) move(u.id, LEFT);
+    //else move(u.id, TOP);//OJO
   }
 
   vector<pair<int, Dir>> planStrategy(VI attackers, VI explorers, VI defenders) {
@@ -167,15 +166,18 @@ struct PLAYER_NAME : public Player
 
   void act()
   {
+    VI Units = my_units(me());
+	  int n = Units.size();
+    //Look for an enemy unit on each direction and if my unit is not immune attack him elsewhere runaway
     for(int i = 0; i < n; i++)
     {
       int id = Units[i];
       Unit u = unit(id);
-      for(int j = 0; j < 3; j++)//Look for an enemy unit on each direction and if my unit is not immune attack him elsewhere runaway
+      for(int j = 0; j < 3; j++)
       {
         if(j == 0)
         {
-          if(cell(u.pos + TOP).unit_id != -1)
+          if(cell(u.pos + TOP).unit_id != -1 && !Exists(Units, cell(u.pos + TOP).unit_id))
           {
             if(not u.immune) move(id, TOP);
             else if(cell(u.pos + LEFT).type != WALL) move(id, LEFT);
@@ -186,19 +188,20 @@ struct PLAYER_NAME : public Player
         }
         else if(j == 1)
         {
-          if(cell(u.pos + BOTTOM).unit_id != -1)
+          if(cell(u.pos + BOTTOM).unit_id != -1 && !Exists(Units, cell(u.pos + BOTTOM).unit_id))
           {
-            if(not u.immune) move(id BOTTOM);
+            if(not u.immune) move(id, BOTTOM);
             else if(cell(u.pos + LEFT).type != WALL) move(id, LEFT);
             else if(cell(u.pos + RIGHT).type != WALL) move(id, RIGHT);
             else if(cell(u.pos + TOP).type != WALL) move(id, TOP);
             else move(id, BOTTOM);
+          }
         }
         else if(j == 2)
         {
-          if(cell(u.pos + LEFT).unit_id != -1)
+          if(cell(u.pos + LEFT).unit_id != -1 && !Exists(Units, cell(u.pos + LEFT).unit_id))
           {
-            if(not u.immune) move(id LEFT);
+            if(not u.immune) move(id, LEFT);
             else if(cell(u.pos + BOTTOM).type != WALL) move(id, BOTTOM);
             else if(cell(u.pos + RIGHT).type != WALL) move(id, RIGHT);
             else if(cell(u.pos + TOP).type != WALL) move(id, TOP);
@@ -207,9 +210,9 @@ struct PLAYER_NAME : public Player
         }
         else if(j == 3)
         {
-          if(cell(u.pos + RIGHT).unit_id != -1)
+          if(cell(u.pos + RIGHT).unit_id != -1 && !Exists(Units, cell(u.pos + RIGHT).unit_id))
           {
-            if(not u.immune) move(id RIGHT);
+            if(not u.immune) move(id, RIGHT);
             else if(cell(u.pos + LEFT).type != WALL) move(id, LEFT);
             else if(cell(u.pos + BOTTOM).type != WALL) move(id, BOTTOM);
             else if(cell(u.pos + TOP).type != WALL) move(id, TOP);
@@ -217,11 +220,6 @@ struct PLAYER_NAME : public Player
           }
         }
       }
-      Pos closerCity = closer_city(u.pos);
-      if(u.pos.i < closerCity.i) move(id, BOTTOM);
-      else if(u.pos.i > closerCity.i) move(id, TOP);
-      else if(u.pos.j < closerCity.j) move(id, RIGHT);
-      else if(u.pos.j > closerCity.j) move(id, LEFT);
     }
     if(endRound0 > 0)
     {
@@ -265,6 +263,11 @@ struct PLAYER_NAME : public Player
 
   }
 
+  static bool cmp(Unit u1, Unit u2)
+  {
+    return u1.pos < u2.pos;
+  }
+
   //this function adds too StartingComp vector: a couple(2) of units wich are the closest ones to each other and their closest city
   void start()
   {
@@ -281,41 +284,47 @@ struct PLAYER_NAME : public Player
         --i;
       }
     }
+    n = Units0.size();
+    vector<Unit> v;
+    for(int i = 0; i < n; i++) v.push_back(unit(Units0[i]));
+    sort(v.begin(), v.end(), cmp);
+    for(int i = 0; i < n; i++) Units0[i] = v[i].id;
     for(int i = 0; i < 6; i++)
-    {
-      int id = Units0[0];
-      Unit u = unit(id);
-      if(Exists(Units0, id))
-      {
-        pair<int, int> couple = findCouple(id, Units0);
-        Pos closerCity = closer_city(u.pos);
-        Pos closerCity2;
-        if(cell(closerCity + TOP).type == CITY) closerCity2 = closerCity + TOP;
-        else if(cell(closerCity + BOTTOM).type == CITY) closerCity2 = closerCity + BOTTOM;
-        else if(cell(closerCity + LEFT).type == CITY) closerCity2 = closerCity + LEFT;
-        else if(cell(closerCity + RIGHT).type == CITY) closerCity2 = closerCity + RIGHT;
-        pair<Pos, Pos> cC;
-        cC.first = closerCity;
-        cC.second = closerCity2;
-        pair<pair<int, int>, pair<Pos, Pos>> newCouple;
-        newCouple.first = couple;
-        newCouple.second = cC;
-        StartingComp.push_back(newCouple);
-        Units0.erase(Units0.begin());
-        int x = Units0.size();
-        for(int j = 0; j < x; j++)
-          if(Units0[j] == couple.second)
-          {
-            Units0.erase(Units0.begin() + j);
-          }
-      }
-    }
-    cout<< "-----------------------------------------";
-    for(int i = 0; i < 6; i++)
-    {
-      cout<< endl << StartingComp.size() << ' ' << StartingComp[i].first.first << ' ' << StartingComp[i].first.second << ' ' << StartingComp[i].second.first.i << '-' << StartingComp[i].second.first.j << ' ' << StartingComp[i].second.second.i << '-' << StartingComp[i].second.second.j << endl;
-    }
-  }
+   {
+     int id = Units0[0];
+     Unit u = unit(id);
+     if(Exists(Units0, id))
+     {
+       pair<int, int> couple = findCouple(id, Units0);//Looks for 2 close Units and pairs them
+
+       Pos closestCity = closest_city(u.pos); //Looks for the closest city of the first Unit
+
+       Pos closestCity2;//Looks for a Position next to the other one inside the city
+       if(cell(closestCity + TOP).type == CITY) closestCity2 = closestCity + TOP;
+       else if(cell(closestCity + BOTTOM).type == CITY) closestCity2 = closestCity + BOTTOM;
+       else if(cell(closestCity + LEFT).type == CITY) closestCity2 = closestCity + LEFT;
+       else if(cell(closestCity + RIGHT).type == CITY) closestCity2 = closestCity + RIGHT;
+
+       pair<Pos, Pos> cC;//Puts together all the previous elements in one vector
+       cC.first = closestCity;
+       cC.second = closestCity2;
+       pair<pair<int, int>, pair<Pos, Pos>> newCouple;
+       newCouple.first = couple;
+       newCouple.second = cC;
+       StartingComp.push_back(newCouple);
+
+       Units0.erase(Units0.begin());//Erases the units included on the new vector
+       int x = Units0.size();
+       for(int j = 0; j < x; j++)
+       {
+         if(Units0[j] == couple.second)
+         {
+           Units0.erase(Units0.begin() + j);
+         }
+       }
+     }
+   }
+ }
   /**
    * Play method, invoked once per each round.
    */
